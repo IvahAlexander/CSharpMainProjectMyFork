@@ -1,37 +1,49 @@
 ﻿using System.Collections.Generic;
-using Model;
+using System.Linq;
 using Model.Runtime.Projectiles;
 using UnityEngine;
 using Utilities;
-using static UnityEngine.GraphicsBuffer;
 
 namespace UnitBrains.Player
 {
     public class SecondUnitBrain : DefaultPlayerUnitBrain
     {
         public override string TargetUnitName => "Cobra Commando";
+        public static int UnitCounter = 0;
+        public const int MaxTargets = 3;
         private const float OverheatTemperature = 3f;
         private const float OverheatCooldown = 2f;
         private float _temperature = 0f;
         private float _cooldownTime = 0f;
         private bool _overheated;
-        private List<Vector2Int> _targetsOutOfReach = new List<Vector2Int>();
 
+        private int UnitID = UnitCounter++;
+
+        private List<Vector2Int> unreachableTargets = new();
+        
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
             float overheatTemperature = OverheatTemperature;
             ///////////////////////////////////////
             // Homework 1.3 (1st block, 3rd module)
             ///////////////////////////////////////           
-            var projectile = CreateProjectile(forTarget);
-            AddProjectileToList(projectile, intoList);
+            
+            var currentTemperature = GetTemperature();
+            if (currentTemperature >= overheatTemperature) return;
+            
+            for (int i = 0; i <= currentTemperature; i++) {
+                var projectile = CreateProjectile(forTarget);
+                AddProjectileToList(projectile, intoList);
+            }
+            IncreaseTemperature();
             ///////////////////////////////////////
         }
 
         public override Vector2Int GetNextStep()
         {
-            if (_targetsOutOfReach.Count <= 0 || IsTargetInRange(_targetsOutOfReach[0])) return unit.Pos;
-            return unit.Pos.CalcNextStepTowards(_targetsOutOfReach[0]);
+            return unreachableTargets.Any()
+               ? unit.Pos.CalcNextStepTowards(unreachableTargets.First())
+               : unit.Pos;
         }
 
         protected override List<Vector2Int> SelectTargets()
@@ -39,36 +51,33 @@ namespace UnitBrains.Player
             ///////////////////////////////////////
             // Homework 1.4 (1st block, 4rd module)
             ///////////////////////////////////////
+            
+            List<Vector2Int> reachableTargets = new();
+            unreachableTargets.Clear();
+            var allTargets = new List<Vector2Int>(GetAllTargets());
 
-            List<Vector2Int> result = new List<Vector2Int>(GetAllTargets());
-            _targetsOutOfReach.Clear();
-            if (result.Count > 0)
-            {
-                Vector2Int outTarget = new();
-                float minDist = float.MaxValue;
-                float nowDist = 0;
-
-                foreach (Vector2Int nowTarget in result)
-                {
-                    nowDist = DistanceToOwnBase(nowTarget);
-                    if(nowDist < minDist)
-                    {
-                        minDist = nowDist;
-                        outTarget = nowTarget;
-                    }
-                }
-                _targetsOutOfReach.Add(outTarget);
-
-                result.Clear();
-                if (IsTargetInRange(outTarget)) result.Add(outTarget);
-                else _targetsOutOfReach.Add(outTarget);
+            if (!allTargets.Any()) {
+                reachableTargets.Add(
+                    runtimeModel.RoMap.Bases[
+                        IsPlayerUnitBrain 
+                            ? Model.RuntimeModel.BotPlayerId 
+                            : Model.RuntimeModel.PlayerId
+                        ]
+                );
+                return reachableTargets;
             }
-            else
-            {
-                result.Add(runtimeModel.RoMap.Bases[IsPlayerUnitBrain ? RuntimeModel.BotPlayerId : RuntimeModel.PlayerId]);
-                _targetsOutOfReach.Add(runtimeModel.RoMap.Bases[IsPlayerUnitBrain ? RuntimeModel.BotPlayerId : RuntimeModel.PlayerId]);
+
+            SortByDistanceToOwnBase(allTargets);
+            var targets = allTargets.Take(MaxTargets);
+            var _targetId = UnitID % targets.Count();
+            
+            unreachableTargets.Add(targets.ElementAt(_targetId));
+
+            if (IsTargetInRange(targets.ElementAt(_targetId))) {
+                reachableTargets.Add(targets.ElementAt(_targetId));
             }
-            return result;
+
+            return reachableTargets;
             ///////////////////////////////////////
         }
 
