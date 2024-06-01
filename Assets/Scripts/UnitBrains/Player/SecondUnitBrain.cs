@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
+using Model;
 using Model.Runtime.Projectiles;
 using UnityEngine;
+using Utilities;
 using static UnityEngine.GraphicsBuffer;
 
 namespace UnitBrains.Player
@@ -13,34 +15,23 @@ namespace UnitBrains.Player
         private float _temperature = 0f;
         private float _cooldownTime = 0f;
         private bool _overheated;
-        
+        private List<Vector2Int> _targetsOutOfReach = new List<Vector2Int>();
+
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
             float overheatTemperature = OverheatTemperature;
             ///////////////////////////////////////
             // Homework 1.3 (1st block, 3rd module)
             ///////////////////////////////////////           
-            float nowTemperature = GetTemperature();
-
-            if (nowTemperature < overheatTemperature)
-            {
-                do
-                {
             var projectile = CreateProjectile(forTarget);
             AddProjectileToList(projectile, intoList);
-
-                    nowTemperature--;
-                }
-                while (nowTemperature >= 0);
-
-                IncreaseTemperature();
-            }
             ///////////////////////////////////////
         }
 
         public override Vector2Int GetNextStep()
         {
-            return base.GetNextStep();
+            if (_targetsOutOfReach.Count <= 0 || IsTargetInRange(_targetsOutOfReach[0])) return unit.Pos;
+            return unit.Pos.CalcNextStepTowards(_targetsOutOfReach[0]);
         }
 
         protected override List<Vector2Int> SelectTargets()
@@ -49,20 +40,35 @@ namespace UnitBrains.Player
             // Homework 1.4 (1st block, 4rd module)
             ///////////////////////////////////////
 
-            List<Vector2Int> result = GetReachableTargets();
-            float minDistance = float.MaxValue;
-            for (int i = 0; i < result.Count; i++)//If I write through Foreach, it gives me an error on lines 85-93 p.s. the error indicates that you cannot change their number while iterating over elements
+            List<Vector2Int> result = new List<Vector2Int>(GetAllTargets());
+            _targetsOutOfReach.Clear();
+            if (result.Count > 0)
             {
-                float distanceToNowTarget = DistanceToOwnBase(result[i]);//I take this variable to calculate it once instead of repeated recalculations
-                if (distanceToNowTarget < minDistance)
+                Vector2Int outTarget = new();
+                float minDist = float.MaxValue;
+                float nowDist = 0;
+
+                foreach (Vector2Int nowTarget in result)
                 {
-                    minDistance = distanceToNowTarget;
-                    result.Add(result[i]);
+                    nowDist = DistanceToOwnBase(nowTarget);
+                    if(nowDist < minDist)
+                    {
+                        minDist = nowDist;
+                        outTarget = nowTarget;
+                    }
                 }
-                result.RemoveRange(0, result.Count - 1);
+                _targetsOutOfReach.Add(outTarget);
+
+                result.Clear();
+                if (IsTargetInRange(outTarget)) result.Add(outTarget);
+                else _targetsOutOfReach.Add(outTarget);
+            }
+            else
+            {
+                result.Add(runtimeModel.RoMap.Bases[IsPlayerUnitBrain ? RuntimeModel.BotPlayerId : RuntimeModel.PlayerId]);
+                _targetsOutOfReach.Add(runtimeModel.RoMap.Bases[IsPlayerUnitBrain ? RuntimeModel.BotPlayerId : RuntimeModel.PlayerId]);
             }
             return result;
-
             ///////////////////////////////////////
         }
 
