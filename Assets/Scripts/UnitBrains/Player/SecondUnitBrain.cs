@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Model.Runtime.Projectiles;
 using UnityEngine;
+using static UnityEngine.GraphicsBuffer;
 
 namespace UnitBrains.Player
 {
@@ -19,17 +20,21 @@ namespace UnitBrains.Player
             ///////////////////////////////////////
             // Homework 1.3 (1st block, 3rd module)
             ///////////////////////////////////////           
-            float currentTemperature = GetTemperature();
-            for (int i = 0; i < currentTemperature; i++)
+            float nowTemperature = GetTemperature();
+
+            if (nowTemperature < overheatTemperature)
             {
-                var projectile = CreateProjectile(forTarget);
-                AddProjectileToList(projectile, intoList);
+                do
+                {
+            var projectile = CreateProjectile(forTarget);
+            AddProjectileToList(projectile, intoList);
+
+                    nowTemperature--;
+                }
+                while (nowTemperature >= 0);
+
+                IncreaseTemperature();
             }
-            if (currentTemperature >= overheatTemperature)
-            {
-                return;
-            }
-            IncreaseTemperature();
             ///////////////////////////////////////
         }
 
@@ -43,12 +48,21 @@ namespace UnitBrains.Player
             ///////////////////////////////////////
             // Homework 1.4 (1st block, 4rd module)
             ///////////////////////////////////////
+
             List<Vector2Int> result = GetReachableTargets();
-            while (result.Count > 1)
+            float minDistance = float.MaxValue;
+            for (int i = 0; i < result.Count; i++)//If I write through Foreach, it gives me an error on lines 85-93 p.s. the error indicates that you cannot change their number while iterating over elements
             {
-                result.RemoveAt(result.Count - 1);
+                float distanceToNowTarget = DistanceToOwnBase(result[i]);//I take this variable to calculate it once instead of repeated recalculations
+                if (distanceToNowTarget < minDistance)
+                {
+                    minDistance = distanceToNowTarget;
+                    result.Add(result[i]);
+                }
+                result.RemoveRange(0, result.Count - 1);
             }
             return result;
+
             ///////////////////////////////////////
         }
 
