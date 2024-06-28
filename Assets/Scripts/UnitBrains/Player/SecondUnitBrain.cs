@@ -54,31 +54,27 @@ namespace UnitBrains.Player
             
             List<Vector2Int> reachableTargets = new();
             unreachableTargets.Clear();
-            var allTargets = new List<Vector2Int>(GetAllTargets());
-
-            if (!allTargets.Any()) {
-                reachableTargets.Add(
-                    runtimeModel.RoMap.Bases[
-                        IsPlayerUnitBrain 
-                            ? Model.RuntimeModel.BotPlayerId 
-                            : Model.RuntimeModel.PlayerId
-                        ]
-                );
-                return reachableTargets;
-            }
-
-            SortByDistanceToOwnBase(allTargets);
-            var targets = allTargets.Take(MaxTargets);
-            var _targetId = UnitID % targets.Count();
             
-            unreachableTargets.Add(targets.ElementAt(_targetId));
+            foreach (Vector2Int target in GetAllTargets())
+                {
+                unreachableTargets.Add(target);
+                }
 
-            if (IsTargetInRange(targets.ElementAt(_targetId))) {
-                reachableTargets.Add(targets.ElementAt(_targetId));
-            }
+            if (unreachableTargets.Count == 0)
+                {
+                unreachableTargets.Add(runtimeModel.RoMap.Bases[
+                    IsPlayerUnitBrain ? Model.RuntimeModel.BotPlayerId : Model.RuntimeModel.PlayerId]);
+                }
+
+            SortByDistanceToOwnBase(unreachableTargets);
+
+            var targetId = UnitID % MaxTargets;
+            var bestTargetID = Mathf.Min(targetId, unreachableTargets.Count-1);
+            var bestTarget = unreachableTargets[bestTargetID];
+
+            if (IsTargetInRange(bestTarget)) reachableTargets.Add(bestTarget);
 
             return reachableTargets;
-            ///////////////////////////////////////
         }
 
         public override void Update(float deltaTime, float time)
